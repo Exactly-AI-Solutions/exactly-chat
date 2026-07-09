@@ -1,0 +1,37 @@
+{
+  "name": "exactly-chat",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "ingest": "tsx scripts/ingest.ts",
+    "ingest-text": "tsx scripts/ingest-text.ts",
+    "mint-key": "tsx scripts/mint-key.ts",
+    "set-config": "tsx scripts/set-client-config.ts"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.8",
+    "@ai-sdk/openai": "^4.0.8",
+    "@langfuse/otel": "^5.9.1",
+    "@langfuse/tracing": "^5.9.1",
+    "@langfuse/vercel-ai-sdk": "^5.9.1",
+    "@supabase/supabase-js": "^2.110.0",
+    "@vercel/otel": "^2.1.3",
+    "ai": "^7.0.16",
+    "dotenv": "^17.4.2",
+    "next": "^16.2.10",
+    "pdf-parse": "^2.4.5",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "tsx": "^4.23.0",
+    "typescript": "^6.0.3"
+  }
+}

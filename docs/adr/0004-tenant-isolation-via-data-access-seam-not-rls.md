@@ -1,0 +1,11 @@
+# Tenant isolation via an enforced data-access seam, not RLS
+
+The system is a single shared Supabase schema where every tenant-owned row carries a `client_id`. Tenant isolation is enforced by routing **all** access to tenant-owned data through one mandatory data-access module that always injects the `client_id` (and a similarity-search RPC that always takes `client_id` as a parameter). There is no raw table access scattered through the codebase where a `WHERE client_id = …` could be forgotten.
+
+We deliberately do **not** use Postgres Row-Level Security *for tenant isolation* (client-A-rows vs client-B-rows), even though RLS policies are the default expectation in a Supabase project. The API runs server-side and connects with the Supabase **service-role key**, which **bypasses RLS entirely** — so isolation policies would never fire on any query the API makes, providing zero protection while creating a false sense of safety. Making RLS enforce isolation under the service role requires per-request tenant context (`SET LOCAL app.client_id` + policies against `current_setting(...)`), which is ongoing effort on every table for a backstop we don't otherwise need at this scale (tens of white-label clients, not a zero-trust multi-tenant platform).
+
+The single data-access seam gives us the "the filter can't be forgotten" guarantee we actually wanted from RLS, by construction, and remains the natural place to reintroduce policy-based isolation if we ever move to per-request scoped database credentials.
+
+## RLS *is* enabled — as a public-API lockout, not for isolation
+
+There is a second, distinct use of RLS that we **do** adopt. Supabase auto-exposes every `public` table through its PostgREST endpoint to the **anon/publishable** role; a table with *no* RLS is therefore readable and writable by anyone holding the publishable key, directly over REST, bypassing our data-access seam. To close that door, RLS is **enabled on every table with zero policies** — which denies the anon/publishable role entirely, while the service-role (secret) key our server uses bypasses RLS and is unaffected. This is a public-vs-our-server lockout, not client-vs-client isolation; the two concerns are complementary. The `enable row level security` statements live in `supabase/migrations/0001_init.sql`, policy-free by design.

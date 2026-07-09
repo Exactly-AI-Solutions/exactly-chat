@@ -1,0 +1,11 @@
+# Publishable API key with layered abuse defense
+
+The production caller is an Exactly-built chat widget running in the end user's browser, so the API key it carries is unavoidably public — any browser-embedded credential is extractable from the shipped bundle or devtools, and inserting a proxy tier only relocates the public entry point one hop down without a backend that has authenticated users. We therefore treat the key as client *identification*, not a secret, and place the security budget on three cheap layers instead of on key secrecy:
+
+- **A — Domain whitelist.** Reject requests whose `Origin`/`Referer` is not in the client's allowed set. Stops casual reuse of the key on another website (real browsers send a truthful `Origin` and CORS blocks the response). It cannot stop a script with a forged `Origin`; nothing cheap can.
+- **B — Agent scoping.** The Chat Agent is constrained to its client's subject matter and refuses general-purpose LLM tasks, so a stolen agent is worthless as a free ChatGPT. This is what actually neutralises the abuse we saw in a POC (a discovered chatbot used for arbitrary LLM tasks).
+- **C — Per-client usage metering + quota/kill-switch.** We meter token consumption per client (also the billing basis) and can throw a per-client cap when needed. This caps our cost exposure from the forged-`Origin` case Layer A cannot prevent, and is the backstop against a stolen-key script.
+
+Scope boundary: end-user-level abuse on a client's own site (spam, bots, one visitor hammering the widget) is the **client's** responsibility, not ours. We do **no** per-end-user enforcement (no IP-keyed rate limiting at start). We still log IP and full request info per message for observability and transcript analysis, but enforcement only ever operates at the granularity of *which client*. Per-minute rate limiting is deferred — usage metering plus a per-client cap is sufficient to launch.
+
+Consequence: because the key is public, it is stored as a **fast** hash (SHA-256, indexed by a key-id prefix), not bcrypt — bcrypt's slow-brute-force property protects nothing when the plaintext is already public and would only tax the hot path. bcrypt is reserved for any genuinely secret credential introduced later (e.g. an admin/management key).
