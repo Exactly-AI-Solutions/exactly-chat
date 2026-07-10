@@ -57,7 +57,11 @@ Their browser origin must be whitelisted or the API returns **403**.
   - **Testimonials** — **Sergio Maclean** and **Ashley Kowal** permission confirmed; the bot may attribute + quote both. J&J stays anonymous until its permission lands.
   - Coaching-cost 50–200% (SHRM) unchanged.
   Mark's delta note lives at `kb/matthew_hfa_kb_v1.7_note_2026-07-10.md` (internal — NOT bot grounding).
-- **Still outstanding:** Mark's **6 prompt-discipline tweaks (F-01…F-06)** sent 2026-07-10 morning are a **separate** workstream from the KB content and are **not yet applied** here — they'd land in `client-config/howorth-francis/guidelines.md` (system prompt), not the KB. Confirm whether these still need doing.
+- **Prompt-discipline fixes (F-01…F-06) — all applied + verified live 2026-07-10.** F-03/F-04 were already clean; F-01/F-02/F-05/F-06 landed in `client-config/howorth-francis/{guidelines.md, qa-samples.md}` and were pushed via `set-config --guidelines --qa`:
+  - **F-01** — dropped the "within a business day" SLA; send-off is now "Sent. One of them will get back to you personally."
+  - **F-02** — fit is described qualitatively (does a leadership team exist?), no headcount number.
+  - **F-05** — Rod's ICF membership/level is deflected entirely to the founders (also removed a QA example that wrongly asserted "ICF-accredited").
+  - **F-06** — remote/video questions defer to the founders instead of answering "onsite or offsite."
 - **Remaining KB placeholders (bot won't assert these):** pricing figures (retainer/defer posture only) and real photos. Fill real values into `kb/howorth_francis_kb_v1.7.md` and re-run `set-config --kb` when Charlotte/Rod confirm.
 - **Langfuse tracing is live** (`us.cloud.langfuse.com`). Wired via the AI SDK v7 integration (`@langfuse/otel` + `@langfuse/vercel-ai-sdk` in `src/instrumentation.ts`) — the older `langfuse-vercel` exporter didn't understand v7 spans and produced no traces. Attribution set in `src/app/api/chat/route.ts` via `@langfuse/tracing` `propagateAttributes`: `sessionId` = `conversationId` (one session per chat), `userId` = `clientId` (per-client dashboards), `traceName` = `"chat"`, tags/metadata for the client. Verified live: two-turn conversation grouped under one session with token cost + latency.
 
