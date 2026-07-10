@@ -42,7 +42,7 @@ Their browser origin must be whitelisted or the API returns **403**.
 - **Client:** Howorth Francis — UUID `e7580eab-0a93-4bd4-875f-7e751cb25d4b`
 - **Mint another key:** `npm run mint-key -- --client <uuid>`
 - **Update guidelines / QA / KB / opening / origins:** `npm run set-config -- --client <uuid> [--guidelines f] [--qa f] [--kb f] [--widget f] [--origins csv]`
-  - HFA source files: `client-config/howorth-francis/{guidelines.md, qa-samples.md, widget.json}`; facts KB: `kb/howorth_francis_kb_v1.4.md`
+  - HFA source files: `client-config/howorth-francis/{guidelines.md, qa-samples.md, widget.json}`; facts KB: `kb/howorth_francis_kb_v1.7.md`
 - **DB migrations applied:** `0001`–`0004` (schema, usage, KB-text, widget config).
 
 ## 5. State notes (so nothing surprises you)
@@ -50,7 +50,15 @@ Their browser origin must be whitelisted or the API returns **403**.
 - **Interim mode:** `config.retrieval.mode = "full-kb"` — the whole KB is in the prompt, no OpenAI. Behaviour is identical for the designer. When OpenAI credits return: switch to `"embeddings"`, run `npm run ingest`, redeploy. (ADR-0008.)
 - **Chatbot conforms to the spec** (`kb/hfa_chatbot_spec.pdf`) via per-client config — Guidelines + QA Samples + KB + opening bubbles/chips. Verified live.
 - **Handoff email is not wired.** The bot collects name/company/role/email conversationally and shows the "Here's what I'm sending Rod and Charlotte… Sound right?" synthesis, then says "Sent" — but no email is actually delivered. Wire real delivery before the client relies on live leads.
-- **KB placeholders:** pricing (`[$X]`) and a few facts are `[UNVERIFIED]`/`[PLACEHOLDER]`; the bot won't assert them. Fill real values into `kb/howorth_francis_kb_v1.4.md` and re-run `set-config --kb` when Charlotte/Rod confirm.
+- **KB is v1.7 (Deb's 2026-07-10 resolutions), live.** Ingested via `set-config --kb kb/howorth_francis_kb_v1.7.md` on 2026-07-10; verified live end-to-end. Fix-list is 10/10 closed. v1.7 deltas over v1.6 (all content-level, single-file swap):
+  - **95%** — primary wording unchanged ("cognitive scientists estimate… on the order of 95%"); the bot now names **Lakoff & Johnson** if asked *which* scientists (Gendlin stays as the change-methodology grounding).
+  - **CHOICE™** — trademark restored per Deb; render "Leading with CHOICE™".
+  - **BCG** — dropped the unsourced "85% attempted" half; line is now "around 70% of major transformations fail" (BCG). Old 85%-citation guardrail retired.
+  - **Testimonials** — **Sergio Maclean** and **Ashley Kowal** permission confirmed; the bot may attribute + quote both. J&J stays anonymous until its permission lands.
+  - Coaching-cost 50–200% (SHRM) unchanged.
+  Mark's delta note lives at `kb/matthew_hfa_kb_v1.7_note_2026-07-10.md` (internal — NOT bot grounding).
+- **Still outstanding:** Mark's **6 prompt-discipline tweaks (F-01…F-06)** sent 2026-07-10 morning are a **separate** workstream from the KB content and are **not yet applied** here — they'd land in `client-config/howorth-francis/guidelines.md` (system prompt), not the KB. Confirm whether these still need doing.
+- **Remaining KB placeholders (bot won't assert these):** pricing figures (retainer/defer posture only) and real photos. Fill real values into `kb/howorth_francis_kb_v1.7.md` and re-run `set-config --kb` when Charlotte/Rod confirm.
 - **Langfuse tracing is live** (`us.cloud.langfuse.com`). Wired via the AI SDK v7 integration (`@langfuse/otel` + `@langfuse/vercel-ai-sdk` in `src/instrumentation.ts`) — the older `langfuse-vercel` exporter didn't understand v7 spans and produced no traces. Attribution set in `src/app/api/chat/route.ts` via `@langfuse/tracing` `propagateAttributes`: `sessionId` = `conversationId` (one session per chat), `userId` = `clientId` (per-client dashboards), `traceName` = `"chat"`, tags/metadata for the client. Verified live: two-turn conversation grouped under one session with token cost + latency.
 
 ## 6. Sensible next steps
