@@ -42,7 +42,7 @@ Their browser origin must be whitelisted or the API returns **403**.
 - **Client:** Howorth Francis — UUID `e7580eab-0a93-4bd4-875f-7e751cb25d4b`
 - **Mint another key:** `npm run mint-key -- --client <uuid>`
 - **Update guidelines / QA / KB / opening / origins:** `npm run set-config -- --client <uuid> [--guidelines f] [--qa f] [--kb f] [--widget f] [--origins csv]`
-  - HFA source files: `client-config/howorth-francis/{guidelines.md, qa-samples.md, widget.json}`; facts KB: `kb/howorth_francis_kb_v1.7.md`
+  - HFA source files: `client-config/howorth-francis/{guidelines.md, qa-samples.md, widget.json}`; facts KB: `kb/howorth_francis_kb_v1.8.md`
 - **DB migrations applied:** `0001`–`0004` (schema, usage, KB-text, widget config).
 
 ## 5. State notes (so nothing surprises you)
@@ -50,7 +50,12 @@ Their browser origin must be whitelisted or the API returns **403**.
 - **Interim mode:** `config.retrieval.mode = "full-kb"` — the whole KB is in the prompt, no OpenAI. Behaviour is identical for the designer. When OpenAI credits return: switch to `"embeddings"`, run `npm run ingest`, redeploy. (ADR-0008.)
 - **Chatbot conforms to the spec** (`kb/hfa_chatbot_spec.pdf`) via per-client config — Guidelines + QA Samples + KB + opening bubbles/chips. Verified live.
 - **Handoff email is not wired.** The bot collects name/company/role/email conversationally and shows the "Here's what I'm sending Rod and Charlotte… Sound right?" synthesis, then says "Sent" — but no email is actually delivered. Wire real delivery before the client relies on live leads.
-- **KB is v1.7 (Deb's 2026-07-10 resolutions), live.** Ingested via `set-config --kb kb/howorth_francis_kb_v1.7.md` on 2026-07-10; verified live end-to-end. Fix-list is 10/10 closed. v1.7 deltas over v1.6 (all content-level, single-file swap):
+- **KB is v1.8 (range-aware pricing), live.** Ingested via `set-config --kb kb/howorth_francis_kb_v1.8.md` on 2026-07-14; verified live end-to-end (5 pricing probes: team/coaching/keynote ranges assert correctly, firm-quote pressure refused, cancellation-terms question deflected without volunteering %s). Fix-list is 10/10 closed.
+  - **v1.8 delta over v1.7 (pricing only — all other content byte-identical to v1.7):** pricing moved from **defer-only → range-aware**, founder-locked 2026-07-14 (Deb secured HFA approval; source sheet `kb/HFA CostsUPDATED-1.xlsx`, internal/gitignored — NOT bot grounding).
+    The bot now states indicative **starting ranges** — Keynote $5–15k · 1:1 coaching $1.5–5k/mo retainer · Team $15–30k+ (3–6 mo) · Extended $30–75k+ (6–12 mo) — always framed as starting points, with the exact number still routed to a founder conversation.
+    Guardrails intact: never a firm quote; never volunteer cancellation/refund/missed-session terms unprompted; never quote the founders' solo-practice pricing as HFA pricing. Full four-offer table + terms live in KB §A5.
+    Config side (tracked): `guidelines.md` "Don't pre-anchor" bullet rewritten to the range-aware posture; `qa-samples.md` Example-1 pricing line flipped to range-then-defer and the not-a-fit `[$X]` placeholder filled ($15k).
+  - v1.7 deltas over v1.6 (all content-level, single-file swap):
   - **95%** — primary wording unchanged ("cognitive scientists estimate… on the order of 95%"); the bot now names **Lakoff & Johnson** if asked *which* scientists (Gendlin stays as the change-methodology grounding).
   - **CHOICE™** — trademark restored per Deb; render "Leading with CHOICE™".
   - **BCG** — dropped the unsourced "85% attempted" half; line is now "around 70% of major transformations fail" (BCG). Old 85%-citation guardrail retired.
@@ -62,7 +67,7 @@ Their browser origin must be whitelisted or the API returns **403**.
   - **F-02** — fit is described qualitatively (does a leadership team exist?), no headcount number.
   - **F-05** — Rod's ICF membership/level is deflected entirely to the founders (also removed a QA example that wrongly asserted "ICF-accredited").
   - **F-06** — remote/video questions defer to the founders instead of answering "onsite or offsite."
-- **Remaining KB placeholders (bot won't assert these):** pricing figures (retainer/defer posture only) and real photos. Fill real values into `kb/howorth_francis_kb_v1.7.md` and re-run `set-config --kb` when Charlotte/Rod confirm.
+- **Remaining KB placeholders (bot won't assert these):** real photos and the "Field Notes" blog pieces (`blog.html` shell only). Pricing is no longer a placeholder — it's founder-locked range-aware as of v1.8. Fill remaining values into `kb/howorth_francis_kb_v1.8.md` and re-run `set-config --kb` when Charlotte/Rod confirm.
 - **Langfuse tracing is live** (`us.cloud.langfuse.com`). Wired via the AI SDK v7 integration (`@langfuse/otel` + `@langfuse/vercel-ai-sdk` in `src/instrumentation.ts`) — the older `langfuse-vercel` exporter didn't understand v7 spans and produced no traces. Attribution set in `src/app/api/chat/route.ts` via `@langfuse/tracing` `propagateAttributes`: `sessionId` = `conversationId` (one session per chat), `userId` = `clientId` (per-client dashboards), `traceName` = `"chat"`, tags/metadata for the client. Verified live: two-turn conversation grouped under one session with token cost + latency.
 
 ## 6. Sensible next steps
