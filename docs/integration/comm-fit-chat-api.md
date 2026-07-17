@@ -32,7 +32,7 @@ https://staging.comm-fit.com
 https://comm-fit.com
 ```
 
-Already whitelisted: `https://comm-fit-concierge.vercel.app`. That is currently the **only** enabled origin — send us the rest (including your local dev URL) and we'll add them instantly.
+Already whitelisted: `https://comm-fit-concierge.vercel.app` and `http://localhost:3000` (local dev). Send us the rest — staging, production, and your local dev URL if it's on a different port (e.g. `http://localhost:5173` for Vite) — and we'll add them instantly.
 
 > Note: the origin is your site's origin (scheme + host + port), not a path and with no trailing slash. `http://localhost:3000` and `http://localhost:5173` are different origins; `https://comm-fit.com` and `https://comm-fit.com/` are treated as the same origin by the browser (it always sends the slash-less form).
 
