@@ -1,6 +1,8 @@
-# Handoff / pick-up — Howorth Francis chatbot
+# Handoff / pick-up — Exactly Chat (Howorth Francis + Comm-Fit)
 
-Status snapshot for resuming. Last updated after wiring Langfuse tracing (with per-client/session attribution) and putting the code under source control on GitHub.
+Status snapshot for resuming.
+Two clients are provisioned: **Howorth Francis** (live, in client review) and **Comm-Fit** (provisioned 2026-07-17).
+Sections 1–6 below are Howorth-Francis-specific unless noted; Comm-Fit's identifiers and state live in §4 and §7.
 
 ---
 
@@ -39,10 +41,13 @@ Their browser origin must be whitelisted or the API returns **403**.
 
 ## 4. Key identifiers & commands
 
-- **Client:** Howorth Francis — UUID `e7580eab-0a93-4bd4-875f-7e751cb25d4b`
-- **Mint another key:** `npm run mint-key -- --client <uuid>`
-- **Update guidelines / QA / KB / opening / origins:** `npm run set-config -- --client <uuid> [--guidelines f] [--qa f] [--kb f] [--widget f] [--origins csv]`
-  - HFA source files: `client-config/howorth-francis/{guidelines.md, qa-samples.md, widget.json}`; facts KB: `kb/howorth_francis_kb_v1.8.md`
+- **Client — Howorth Francis:** UUID `e7580eab-0a93-4bd4-875f-7e751cb25d4b`
+  - Source files: `client-config/howorth-francis/{guidelines.md, qa-samples.md, widget.json}`; facts KB: `kb/howorth_francis_kb_v1.8.md`
+- **Client — Comm-Fit:** UUID `e18a30df-d55d-4514-905c-50725f7dc9d0` (see §7)
+  - Source files: `client-config/comm-fit/{guidelines.md, qa-samples.md, widget.json}`; KB: `kb/comm-fit/comm_fit_kb_v0.1.md`
+- **Create a client:** `npm run create-client -- --name "<name>" [--origins <csv>]` → prints the new UUID.
+- **Mint a key:** `npm run mint-key -- --client <uuid>`
+- **Update guidelines / QA / KB / widget / origins:** `npm run set-config -- --client <uuid> [--guidelines f] [--qa f] [--kb f] [--widget f] [--origins csv]`
 - **DB migrations applied:** `0001`–`0004` (schema, usage, KB-text, widget config).
 
 ## 5. State notes (so nothing surprises you)
@@ -80,3 +85,19 @@ Their browser origin must be whitelisted or the API returns **403**.
 - (When credits return) switch to embeddings retrieval.
 
 See `ROADMAP.md` for the full phase-by-phase status.
+
+## 7. Comm-Fit — second client (provisioned 2026-07-17)
+
+Turnkey commercial-fitness-facility provider (Addison, TX). Same interim `full-kb` mode, `claude-sonnet-4-6`, per-client config in Supabase — no code path is client-specific.
+
+- **UUID:** `e18a30df-d55d-4514-905c-50725f7dc9d0`
+- **API key** (publishable; shown once at mint — regenerate with `mint-key` if lost):
+  ```
+  eck_b95a55bf585d01f5_IfT83IB_N7-kVUln08ZEqgjep-P806LH
+  ```
+- **Whitelisted origin:** `https://comm-fit-concierge.vercel.app` (the only one so far; the input had a trailing slash — stored without it, since `checkOrigin` does an exact match against the browser's slash-less `Origin` header). Add more with `set-config --origins` (replaces the whole list).
+- **Config (tracked):** `client-config/comm-fit/{guidelines.md, qa-samples.md, widget.json}`. **KB (gitignored):** `kb/comm-fit/comm_fit_kb_v0.1.md` (six-layer structure: identity/ICP · pillar feature map · FAQ library · conversion triggers · objection handling · differentiators). qa_samples finalized from the client's canonical Q&A (20 pairs).
+- **Provisioning flow used:** `create-client` (new script) → `set-config --guidelines --qa --kb --widget` → `mint-key`.
+- **Verified live end-to-end** (production, whitelisted origin): identity/what-we-do, pillar routing (a "Flooring" chip loads only that pillar + a qualifying follow-up), the electrostatic-spray KB facts, and the widget-config endpoint (bubbles + 6 chips). **Anti-hallucination holds:** a per-sq-ft flooring price and an employee-count/CFO ask both refuse to invent and route to a quote / name only CEO Seth Gordon. Origin gate confirmed (foreign origin → 403, whitelisted → 200).
+- **Central discipline (baked into guidelines + KB):** the KB is the sole source of truth. The only firm published price is "service calls start at $125"; every other number defers to a quote. Never invent specs, prices, dates, models, warranty terms, competitor names, or people beyond Seth Gordon. Surface `1-877-479-4444` near a decision.
+- **Open items:** no integration guide written yet (HFA has `docs/integration/howorth-francis-chat-api.md` as the template if Comm-Fit's designer needs one); KB is v0.1 (public-facts only — no client-supplied pricing tiers, named case studies, or warranty terms yet).

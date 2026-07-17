@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "ingest": "tsx scripts/ingest.ts",
     "ingest-text": "tsx scripts/ingest-text.ts",
+    "create-client": "tsx scripts/create-client.ts",
     "mint-key": "tsx scripts/mint-key.ts",
     "set-config": "tsx scripts/set-client-config.ts"
   },
