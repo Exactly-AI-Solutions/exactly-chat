@@ -1,8 +1,8 @@
-# Handoff / pick-up — Exactly Chat (Howorth Francis + Comm-Fit)
+# Handoff / pick-up — Exactly Chat (Howorth Francis + Comm-Fit + SAS Conserve)
 
 Status snapshot for resuming.
-Two clients are provisioned: **Howorth Francis** (live, in client review) and **Comm-Fit** (provisioned 2026-07-17).
-Sections 1–6 below are Howorth-Francis-specific unless noted; Comm-Fit's identifiers and state live in §4 and §7.
+Three clients are provisioned: **Howorth Francis** (live, in client review), **Comm-Fit** (provisioned 2026-07-17), and **SAS Conserve** (provisioned 2026-07-24).
+Sections 1–6 below are Howorth-Francis-specific unless noted; Comm-Fit's identifiers and state live in §4 and §7, SAS Conserve's in §4 and §8.
 
 ---
 
@@ -45,6 +45,8 @@ Their browser origin must be whitelisted or the API returns **403**.
   - Source files: `client-config/howorth-francis/{guidelines.md, qa-samples.md, widget.json}`; facts KB: `kb/howorth_francis_kb_v1.8.md`
 - **Client — Comm-Fit:** UUID `e18a30df-d55d-4514-905c-50725f7dc9d0` (see §7)
   - Source files: `client-config/comm-fit/{guidelines.md, qa-samples.md, widget.json}`; KB: `kb/comm-fit/comm_fit_kb_v0.1.md`
+- **Client — SAS Conserve:** UUID `22accbc6-e1a3-4082-8e58-81bd8b18fed9` (see §8)
+  - Source files: `client-config/sasconserve/{guidelines.md, qa-samples.md, widget.json}`; KB: `kb/sasconserve/sas_conserve_kb_v0.1.md`
 - **Create a client:** `npm run create-client -- --name "<name>" [--origins <csv>]` → prints the new UUID.
 - **Mint a key:** `npm run mint-key -- --client <uuid>`
 - **Update guidelines / QA / KB / widget / origins:** `npm run set-config -- --client <uuid> [--guidelines f] [--qa f] [--kb f] [--widget f] [--origins csv]`
@@ -103,3 +105,20 @@ Turnkey commercial-fitness-facility provider (Addison, TX). Same interim `full-k
 - **Integration guide:** [`docs/integration/comm-fit-chat-api.md`](docs/integration/comm-fit-chat-api.md) — self-contained (base URL, auth, whitelist, endpoints, streaming, errors, copy-paste JS, behaviour notes). Send as-is to Comm-Fit's designer.
 - **Whitelisted origins:** `https://comm-fit-concierge.vercel.app` and `http://localhost:3000` (local dev, added 2026-07-17). The hosted `/demo` (origin `https://exactly-chat.vercel.app`) is **not** enabled for the Comm-Fit key; add it with `set-config --origins` if wanted (the guide's §8 flags this).
 - **Open items:** KB is v0.1 (public-facts only — no client-supplied pricing tiers, named case studies, or warranty terms yet).
+
+## 8. SAS Conserve — third client (provisioned 2026-07-24)
+
+Sustainability Solutions ("SAS"), "Experts in Water Savings" — a water-conservation fixture-retrofit provider (Flower Mound, TX) that installs ultra-high-efficiency toilets, showerheads, and aerators as a turnkey audit-to-savings program. Same interim `full-kb` mode, `claude-sonnet-4-6`, per-client config in Supabase — no code path is client-specific.
+
+- **UUID:** `22accbc6-e1a3-4082-8e58-81bd8b18fed9`
+- **API key** (publishable; shown once at mint — regenerate with `mint-key` if lost):
+  ```
+  eck_9fc3d301a78e6557_39Vn5zLkzXhnixlzTuCfC7uA5WqjzC9V
+  ```
+- **Whitelisted origin:** `http://localhost:3000` (dev default, the only one so far). No client production/staging origin supplied yet — add with `set-config --origins` (replaces the whole list). The hosted `/demo` (`https://exactly-chat.vercel.app`) is **not** enabled for this key; the guide's §8 flags this.
+- **Config (tracked):** `client-config/sasconserve/{guidelines.md, qa-samples.md, widget.json}`. **KB (gitignored):** `kb/sasconserve/sas_conserve_kb_v0.1.md` (six-layer structure: ICP qualifier · ICP-matched feature map · FAQ library · product reference · conversion triggers/objections · proof/case studies). The KB is already fully citation-bound with inline `(src: …)` pointers and an explicit anti-hallucination/UNVERIFIED discipline baked in by its author — the guidelines mirror that discipline.
+- **Provisioning flow used:** `create-client` → `set-config --guidelines --qa --kb --widget` → `mint-key` → `set-config --origins`.
+- **Verified live end-to-end** (production, whitelisted origin): config endpoint (bubbles + 5 chips), identity/what-we-do, multifamily segment routing (owner-vs-PM split + NOI/ROI framing), and off-topic decline. **Anti-hallucination holds:** a per-unit price ask routes to a free audit with no invented figure; the warranty ask correctly refuses a single number and cites the 15-vs-20-year site conflict → defers to the quote; a service-area/"nationwide?" ask claims no coverage beyond confirming logistics on request; a leadership ask names only founder Jeffrey Phillips. Origin gate confirmed (foreign origin → 403, whitelisted → 200).
+- **Central discipline (baked into guidelines + KB):** the KB is the sole source of truth. **SAS publishes no prices** — every "how much cost / how much savings" routes to a free water usage audit; self-reported figures are used verbatim and framed as reported results, not guarantees. Never assert a single warranty term (15 vs 20 conflict → defer to quote), never claim a service area beyond Flower Mound TX, never claim company-level certifications (only the aerator's WaterSense is confirmed), never name anyone but founder Jeffrey Phillips, and never invent an email (none is published — use the Contact form or `(888) 657-7582`).
+- **Integration guide:** [`docs/integration/sasconserve-chat-api.md`](docs/integration/sasconserve-chat-api.md) — self-contained (base URL, auth, whitelist, endpoints, streaming, errors, copy-paste JS, behaviour notes). Send as-is to SAS Conserve's designer.
+- **Open items:** KB is v0.1 (public-facts only). Thin/missing topics flagged in the KB's own "Thin / Missing Topics" section — pricing/cost structure (none published), service area beyond TX HQ, product spec bodies, warranty-term reconciliation, company-level certifications, contact email, and rebate details. Fill and re-run `set-config --kb` when the client supplies them. No client origin whitelisted beyond localhost yet.
