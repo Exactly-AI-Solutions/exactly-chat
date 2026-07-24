@@ -32,7 +32,7 @@ https://staging.sasconserve.com
 https://sasconserve.com
 ```
 
-Already whitelisted: `http://localhost:3000` (local dev). Send us the rest — staging, production, and your local dev URL if it's on a different port (e.g. `http://localhost:5173` for Vite) — and we'll add them instantly (no redeploy).
+Already whitelisted: `https://sas-conserve-clone.vercel.app` and `http://localhost:3000` (local dev). Send us the rest — staging, production, and your local dev URL if it's on a different port (e.g. `http://localhost:5173` for Vite) — and we'll add them instantly (no redeploy).
 
 > Note: the origin is your site's origin (scheme + host + port), not a path and with no trailing slash. `http://localhost:3000` and `http://localhost:5173` are different origins; `https://sasconserve.com` and `https://sasconserve.com/` are treated as the same origin by the browser (it always sends the slash-less form).
 
@@ -155,4 +155,4 @@ https://exactly-chat.vercel.app/demo
 
 Paste the API key to see the exact expected behaviour (opening bubbles, chips, streaming, grounded answers, graceful declines) and compare against your own integration.
 
-> This hosted demo calls from the `https://exactly-chat.vercel.app` origin, which is **not** yet whitelisted for the SAS Conserve key — ask us to enable it (or test from your own whitelisted origin once you've sent it to us).
+> This hosted demo calls from the `https://exactly-chat.vercel.app` origin, which is **not** yet whitelisted for the SAS Conserve key — ask us to enable it (or test from your own whitelisted origin, `https://sas-conserve-clone.vercel.app`).
