@@ -82,16 +82,12 @@ Their browser origin must be whitelisted or the API returns **403**.
 - **Remaining KB placeholders (bot won't assert these):** real photos and the "Field Notes" blog pieces (`blog.html` shell only). Pricing is no longer a placeholder — it's founder-locked range-aware as of v1.8. Fill remaining values into `kb/howorth_francis_kb_v1.8.md` and re-run `set-config --kb` when Charlotte/Rod confirm.
 - **Langfuse tracing is live** (`us.cloud.langfuse.com`). Wired via the AI SDK v7 integration (`@langfuse/otel` + `@langfuse/vercel-ai-sdk` in `src/instrumentation.ts`) — the older `langfuse-vercel` exporter didn't understand v7 spans and produced no traces. Attribution set in `src/app/api/chat/route.ts` via `@langfuse/tracing` `propagateAttributes`: `sessionId` = `conversationId` (one session per chat), `userId` = `clientId` (per-client dashboards), `traceName` = `"chat"`, tags/metadata for the client. Verified live: two-turn conversation grouped under one session with token cost + latency.
 
-## 6. Sensible next steps
+## 6. What's next
 
-- **Next up (recommended): per-client usage metering + cap/kill-switch** (ROADMAP Phase 5, last item). Migration `0002_usage.sql` is applied; remaining work is wiring `increment_usage` through the data seam + chat route (count tokens from the stream result, enforce the monthly cap → clean 429). Business-critical for usage billing; no external dependency.
-- Log IP + full request info per message for transcript analysis (ROADMAP Phase 6).
-- (As designer provides them) whitelist their remaining origins (§2).
-- (When ready) wire real handoff email delivery.
-- (When ready) package the embeddable widget script (right now `/demo` is an in-app reference, not a drop-in embed).
-- (When credits return) switch to embeddings retrieval.
+The consolidated, prioritized forward plan now lives in [`WHATS-NEXT.md`](WHATS-NEXT.md) — the single source for "what would we do next."
+It covers: finishing the Doctrine v1.1 meta layer for HFA (Exactly-side KB, Deb's pricing numbers, the shared-scaffold change, wiring the two doors + two-lane close, the full checklist review); making the doctrine the shared base across all mirrors; platform hardening (usage metering + cap/kill-switch, real handoff-email delivery, embeddings switch, widget packaging, request/session logging); per-client KB fill-ins; and ops housekeeping.
 
-See `ROADMAP.md` for the full phase-by-phase status.
+See `ROADMAP.md` for the full phase-by-phase history.
 
 ## 7. Comm-Fit — second client (provisioned 2026-07-17)
 
