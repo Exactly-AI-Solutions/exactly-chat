@@ -2,10 +2,10 @@
 
 The consolidated, prioritized forward plan.
 This is the single source for "what would we do next"; `HANDOFF.md` covers current state, `ROADMAP.md` covers phase-by-phase history.
-Last updated 2026-07-30.
+Last updated 2026-08-03.
 
 Three clients are live: **Howorth Francis** (in client review), **Comm-Fit**, and **SAS Conserve** — all on the interim `full-kb` mode, same per-client config architecture, no client-specific code.
-HFA was brought into **in-frame** conformance with Mirror Chatbot Doctrine v1.1 on 2026-07-30; the meta layer was deliberately deferred (see item 1).
+HFA (2026-07-30) and Comm-Fit (2026-08-03) were both brought into **in-frame** conformance with Mirror Chatbot Doctrine v1.1; SAS Conserve is the remaining in-frame sweep, and the meta layer is deliberately deferred for all three (see item 1).
 
 Items are grouped by theme and ordered roughly by priority within each.
 Each notes what it is, why it matters, and what it's blocked on.
@@ -44,15 +44,16 @@ The doctrine flags most of this as not-yet-built (its own Open Decisions 2 & 4),
 
 ## 2. Make the doctrine the shared base for all mirrors
 
-The doctrine is explicitly the reusable base for *every* mirror ("adapt, don't redesign"), but the 2026-07-30 work was scoped HFA-only and isolated.
-Two decisions remain, best made together with item 1.3:
+The doctrine is explicitly the reusable base for *every* mirror ("adapt, don't redesign").
+HFA (2026-07-30) and now Comm-Fit (2026-08-03) are both at **in-frame** conformance, applied isolated per-client.
+Two things remain, best made together with item 1.3:
 
 - **Where the doctrine lives.**
-  Per-client guidelines (isolated, but duplicated for each new mirror) vs. a shared "mirror scaffold" layer in code that every mirror inherits (matches the doctrine's intent, less drift).
-  The shared-layer path is the maintainable one and pairs naturally with the item 1.3 scaffold change.
-- **Sweep Comm-Fit and SAS Conserve in.**
-  Both are mirror-style deployments and would follow the same in-frame + meta pattern.
-  Once the shared base exists, bringing them to conformance is adaptation, not a rebuild.
+  Per-client guidelines (isolated, but duplicated for each new mirror — already two copies of the same in-frame posture in HFA's and Comm-Fit's guidelines) vs. a shared "mirror scaffold" layer in code that every mirror inherits (matches the doctrine's intent, less drift).
+  The shared-layer path is the maintainable one and pairs naturally with the item 1.3 scaffold change; the growing duplication across per-client guidelines is the concrete argument for it.
+- **Bring SAS Conserve in-frame, and the meta layer to all three.**
+  SAS Conserve is still on its original (pre-doctrine) config and is the remaining in-frame sweep.
+  The **meta** layer (two doors, sign-off invitation, two-lane close) is deferred platform-wide for all three and unblocks only after item 1 (Exactly-side KB + Deb's numbers + scaffold change).
 
 ---
 
