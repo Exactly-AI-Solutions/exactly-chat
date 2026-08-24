@@ -9,5 +9,9 @@
     "Communication issues",
     "Something else",
     "Questions about HFA"
-  ]
+  ],
+  "scheduler": {
+    "enabled": true,
+    "provider": "calendly"
+  }
 }

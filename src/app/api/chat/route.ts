@@ -4,6 +4,7 @@ import { config } from "@/config";
 import { dataForClient } from "@/lib/data";
 import { embedQuery } from "@/lib/embedding";
 import { buildSystemPrompt, formatChunks } from "@/lib/prompt";
+import { stripScheduleToken } from "@/lib/scheduler";
 import { propagateAttributes } from "@langfuse/tracing";
 import {
   checkOrigin,
@@ -87,6 +88,7 @@ export async function POST(req: Request) {
     guidelines: client.guidelines,
     qaSamples: client.qaSamples,
     context,
+    scheduler: client.scheduler,
   });
 
   const messages: ModelMessage[] = [
@@ -125,7 +127,14 @@ export async function POST(req: Request) {
           functionId: "chat",
         },
         onFinish: async ({ text }) => {
-          await data.appendMessage(conversationId, "assistant", text);
+          // Strip the booking cue before persisting: history and analytics carry
+          // the words the visitor saw, not the control token (which is stripped
+          // client-side too). The token is a transient render signal, not content.
+          await data.appendMessage(
+            conversationId,
+            "assistant",
+            stripScheduleToken(text),
+          );
         },
       }),
   );

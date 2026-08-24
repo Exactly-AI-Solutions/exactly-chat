@@ -36,6 +36,10 @@ export async function GET(req: Request) {
       name: client.name,
       openingBubbles: widget.openingBubbles,
       chips: widget.chips,
+      // Booking-in-chat capability. The bot signals each booking moment inline
+      // with a control token on the stream; this just tells the widget the
+      // client has the scheduler at all (so it can prepare the embed).
+      scheduler: widget.scheduler,
     },
     { headers: corsHeaders(origin.origin) },
   );

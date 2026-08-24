@@ -53,11 +53,14 @@ Response (JSON):
     "Most teams don't struggle because people lack skills. They struggle because important things stop getting said.",
     "What are you seeing on your team?"
   ],
-  "chips": ["Team's struggling", "Major changes are happening", "Communication issues", "Something else", "Questions about HFA"]
+  "chips": ["Team's struggling", "Major changes are happening", "Communication issues", "Something else", "Questions about HFA"],
+  "scheduler": { "enabled": true, "provider": "calendly" }
 }
 ```
 
 Render each `openingBubbles` entry as an assistant message. Render `chips` as quick-reply buttons; tapping a chip is equivalent to sending its label as the first message.
+
+`scheduler` tells you whether in-chat booking is on for this client (see §5). When `enabled` is `true`, be ready to render the Calendly embed; the bot tells you *when* on each turn via the stream (§5). When it's `false` or absent, there is no booking cue to handle.
 
 ### `POST /api/chat` — send a message, stream the reply
 
@@ -78,7 +81,43 @@ Request body:
 - The response body is a **stream of plain text** — the assistant's reply, arriving token by token. Read it as a stream and append to the UI as it arrives.
 - Read the **`x-conversation-id`** response header and send it back as `conversationId` on every subsequent message to continue the same conversation. Conversation history lives on the server; you only need to remember this id.
 
-## 5. Errors
+## 5. Booking intent — the scheduler cue
+
+You render the Calendly embed; **we tell you when to show it.** The bot is the only party that knows a booking has actually landed — it is the thing making the offer — so detection lives with us, not with a keyword matcher on your side. This means: **remove any client-side intent detection.** A regex on the visitor's text will fire on "how much does it cost" (a pricing question, not a booking) and miss a booking the bot phrases in words your pattern didn't anticipate. There is one trigger, and it's ours.
+
+**How the cue arrives.** When — and only when — the visitor has agreed to book and the bot is inviting them to pick a time, the streamed reply ends with a single control token, alone on the final line:
+
+```
+[[SCHEDULE_MEETING]]
+```
+
+That token is **in-band, in the same plain-text stream** as the reply — no protocol change, no extra header, no second request. Your job on each turn is:
+
+1. **Strip the token from what you display.** Never show `[[SCHEDULE_MEETING]]` to the visitor.
+2. **When the token is present, render the scheduler** (Calendly embed) after that message.
+
+**Strip it as it streams — buffer the tail.** Because the reply arrives token by token, the marker can land split across two chunks (e.g. `…time?\n[[SCHEDULE_ME` then `ETING]]`). If you strip only complete matches per chunk, a partial marker flashes for a frame. Hold back any trailing text that is a prefix of the token until you know whether it completes:
+
+```js
+const TOKEN = "[[SCHEDULE_MEETING]]";
+
+// Remove complete tokens, and hide a trailing partial token still streaming in.
+function stripForDisplay(text) {
+  let out = text.split(TOKEN).join("");
+  for (let n = TOKEN.length - 1; n > 0; n--) {
+    if (out.endsWith(TOKEN.slice(0, n))) { out = out.slice(0, -n); break; }
+  }
+  return out;
+}
+
+const shouldSchedule = (fullText) => fullText.includes(TOKEN);
+```
+
+Run `stripForDisplay` over the **accumulated** reply text on each render, and call your embed once `shouldSchedule(accumulatedText)` is true. The token never appears in the server-stored transcript, and it is emitted at most once per turn.
+
+**When it does *not* fire** (so you can sanity-check): questions about price, availability, or what a meeting involves; the bot merely *offering* a meeting the visitor hasn't accepted; a visitor who says "just have them email me" (that path stays a conversational hand-off, no embed). It fires on a clear yes to booking, nothing softer.
+
+## 6. Errors
 
 Errors return JSON `{ "error": "..." }` with an HTTP status:
 
@@ -90,7 +129,7 @@ Errors return JSON `{ "error": "..." }` with an HTTP status:
 | 404 | Unknown `conversationId` |
 | 500 | Server error |
 
-## 6. Example (vanilla JS, streaming)
+## 7. Example (vanilla JS, streaming)
 
 ```js
 const BASE = "https://exactly-chat.vercel.app";
@@ -138,13 +177,14 @@ async function sendMessage(message, onToken) {
 // await sendMessage("Questions about HFA", (t) => appendToUI(t));
 ```
 
-## 7. Behaviour notes
+## 8. Behaviour notes
 
 - The assistant answers **only** from Howorth Francis's knowledge base and **declines off-topic requests** (it won't act as a general-purpose assistant). Test with questions about the firm, the founders, their approach, engagement/pricing, and team situations.
 - Replies are intentionally **short** (a sentence or two) — the chat is designed to read in glances.
 - **Conversation state is server-side.** The only thing you persist client-side is `conversationId` (e.g. in `localStorage`) if you want a visitor to resume after a refresh.
+- **Booking is signalled, not detected client-side** (§5). Strip the `[[SCHEDULE_MEETING]]` token from display and render the scheduler when it appears; do not add your own keyword trigger.
 
-## 8. Live reference implementation
+## 9. Live reference implementation
 
 A working reference UI is deployed at:
 
@@ -152,4 +192,4 @@ A working reference UI is deployed at:
 https://exactly-chat.vercel.app/demo
 ```
 
-Paste the API key and try it — this shows the exact expected behaviour (opening bubbles, chips, streaming, grounded answers, graceful declines). Use it to compare against your own integration.
+Paste the API key and try it — this shows the exact expected behaviour (opening bubbles, chips, streaming, grounded answers, graceful declines). Use it to compare against your own integration. It also shows the booking cue (§5): agree to a meeting and the reference UI strips the token and marks where the scheduler embed would render.

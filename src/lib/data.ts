@@ -16,6 +16,16 @@ import { db } from "./supabase";
  * not here — by the time you have a `ClientData`, the tenant is already known.
  */
 
+/**
+ * Whether this client can book meetings in-chat (the Calendly cue), parsed from
+ * `widget_config.scheduler`. `enabled` gates the producer-side prompt
+ * instruction; `provider` is informational for the widget. Absent = off.
+ */
+export type SchedulerConfig = {
+  enabled: boolean;
+  provider: string | null;
+};
+
 export type ClientConfig = {
   id: string;
   name: string;
@@ -23,6 +33,7 @@ export type ClientConfig = {
   guidelines: string;
   qaSamples: string;
   knowledgeBase: string;
+  scheduler: SchedulerConfig;
 };
 
 export type ConversationMessage = {
@@ -41,16 +52,33 @@ export type KbMatch = {
 export type WidgetConfig = {
   openingBubbles: string[];
   chips: string[];
+  scheduler: SchedulerConfig;
 };
+
+/** Parse the `scheduler` block out of a client's widget_config jsonb. */
+function parseScheduler(widgetConfig: unknown): SchedulerConfig {
+  const raw = (widgetConfig as { scheduler?: unknown } | null)?.scheduler;
+  if (!raw || typeof raw !== "object") return { enabled: false, provider: null };
+  const s = raw as { enabled?: unknown; provider?: unknown };
+  return {
+    enabled: s.enabled === true,
+    provider: typeof s.provider === "string" ? s.provider : null,
+  };
+}
 
 export class ClientData {
   constructor(private readonly clientId: string) {}
 
-  /** The client's config: Domain Whitelist + wholesale prompt content. */
+  /**
+   * The client's config: Domain Whitelist + wholesale prompt content, plus the
+   * scheduler capability (from widget_config) since it gates a prompt section.
+   */
   async getClient(): Promise<ClientConfig | null> {
     const { data, error } = await db()
       .from("clients")
-      .select("id, name, allowed_origins, guidelines, qa_samples, knowledge_base")
+      .select(
+        "id, name, allowed_origins, guidelines, qa_samples, knowledge_base, widget_config",
+      )
       .eq("id", this.clientId)
       .maybeSingle();
     if (error) throw error;
@@ -62,6 +90,7 @@ export class ClientData {
       guidelines: data.guidelines ?? "",
       qaSamples: data.qa_samples ?? "",
       knowledgeBase: data.knowledge_base ?? "",
+      scheduler: parseScheduler(data.widget_config),
     };
   }
 
@@ -76,11 +105,12 @@ export class ClientData {
       .select("widget_config")
       .eq("id", this.clientId)
       .maybeSingle();
-    if (error) return { openingBubbles: [], chips: [] };
+    if (error) return { openingBubbles: [], chips: [], scheduler: { enabled: false, provider: null } };
     const cfg = (data?.widget_config ?? {}) as Partial<WidgetConfig>;
     return {
       openingBubbles: Array.isArray(cfg.openingBubbles) ? cfg.openingBubbles : [],
       chips: Array.isArray(cfg.chips) ? cfg.chips : [],
+      scheduler: parseScheduler(data?.widget_config),
     };
   }
 

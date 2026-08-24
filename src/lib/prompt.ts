@@ -1,4 +1,5 @@
-import type { KbMatch } from "./data";
+import type { KbMatch, SchedulerConfig } from "./data";
+import { schedulerInstruction } from "./scheduler";
 
 /**
  * The global prompt scaffold (ADR-0006 — lives in code, not Langfuse). Wraps the
@@ -16,6 +17,7 @@ export type PromptInputs = {
   guidelines: string;
   qaSamples: string;
   context: string;
+  scheduler?: SchedulerConfig;
 };
 
 /** Format retrieved chunks (with provenance) into a context block. */
@@ -36,6 +38,7 @@ export function buildSystemPrompt({
   guidelines,
   qaSamples,
   context,
+  scheduler,
 }: PromptInputs): string {
   return [
     `You are the customer-facing chat assistant for ${clientName}, answering visitors' questions about ${clientName} on their website.`,
@@ -51,6 +54,8 @@ export function buildSystemPrompt({
     ``,
     `## Examples (voice reference)`,
     qaSamples.trim() || "(none provided)",
+    // Booking cue — only for clients whose config enables the in-chat scheduler.
+    ...(scheduler?.enabled ? [``, schedulerInstruction(clientName)] : []),
     ``,
     `## Knowledge base context`,
     context.trim() || "(no information available)",

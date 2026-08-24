@@ -1,6 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  hasScheduleToken,
+  stripScheduleToken,
+  stripScheduleTokenForDisplay,
+} from "@/lib/scheduler";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -167,11 +172,32 @@ export default function DemoPage() {
           </div>
         )}
 
-        {messages.map((m, i) => (
-          <div key={i} style={{ margin: "8px 0", textAlign: m.role === "user" ? "right" : "left" }}>
-            <span style={bubbleStyle(m.role === "user")}>{m.content || "…"}</span>
-          </div>
-        ))}
+        {messages.map((m, i) => {
+          if (m.role === "user") {
+            return (
+              <div key={i} style={{ margin: "8px 0", textAlign: "right" }}>
+                <span style={bubbleStyle(true)}>{m.content || "…"}</span>
+              </div>
+            );
+          }
+          // Assistant: strip the booking cue from the shown text. The last
+          // message may still be streaming, so buffer a partial token too.
+          const streaming = busy && i === messages.length - 1;
+          const shown = streaming
+            ? stripScheduleTokenForDisplay(m.content)
+            : stripScheduleToken(m.content);
+          const scheduling = hasScheduleToken(m.content);
+          return (
+            <div key={i} style={{ margin: "8px 0", textAlign: "left" }}>
+              <span style={bubbleStyle(false)}>{shown || "…"}</span>
+              {scheduling && (
+                <div style={schedulerCueStyle}>
+                  📅 Booking intent — the scheduler embed renders here on the client site.
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {error && <p style={{ color: "#c00", marginTop: 8 }}>Error — {error}</p>}
@@ -212,6 +238,18 @@ const btnStyle: React.CSSProperties = {
   borderRadius: 6,
   background: "#fff",
   cursor: "pointer",
+};
+
+const schedulerCueStyle: React.CSSProperties = {
+  display: "block",
+  marginTop: 8,
+  maxWidth: "85%",
+  padding: "10px 12px",
+  borderRadius: 12,
+  border: "1px dashed #2563eb",
+  background: "#eff4ff",
+  color: "#2563eb",
+  fontSize: "0.85rem",
 };
 
 const chipStyle: React.CSSProperties = {
