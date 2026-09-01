@@ -2,7 +2,7 @@
 
 The consolidated, prioritized forward plan.
 This is the single source for "what would we do next"; `HANDOFF.md` covers current state, `ROADMAP.md` covers phase-by-phase history.
-Last updated 2026-08-03.
+Last updated 2026-08-27.
 
 Three clients are live: **Howorth Francis** (in client review), **Comm-Fit**, and **SAS Conserve** — all on the interim `full-kb` mode, same per-client config architecture, no client-specific code.
 HFA (2026-07-30) and Comm-Fit (2026-08-03) were both brought into **in-frame** conformance with Mirror Chatbot Doctrine v1.1; SAS Conserve is the remaining in-frame sweep, and the meta layer is deliberately deferred for all three (see item 1).
@@ -54,6 +54,11 @@ Two things remain, best made together with item 1.3:
 - **Bring SAS Conserve in-frame, and the meta layer to all three.**
   SAS Conserve is still on its original (pre-doctrine) config and is the remaining in-frame sweep.
   The **meta** layer (two doors, sign-off invitation, two-lane close) is deferred platform-wide for all three and unblocks only after item 1 (Exactly-side KB + Deb's numbers + scaffold change).
+- **Audit every KB for an embedded behaviour spec — a cross-client defect found on Comm-Fit (2026-08-27).**
+  The doctrine sweeps have so far rewritten *guidelines* while leaving the KBs untouched, but in `full-kb` mode the whole KB goes into the prompt, and these KBs were authored from a CRO template that mixes facts with response scripts.
+  Comm-Fit's v0.1 mandated a ~200-word cap, a CTA on every answer, "always offer the contact form or phone", and a stat-stacking "why us" paragraph — all of it silently competing with the doctrine guidelines and winning often enough to produce a client complaint.
+  **SAS Conserve's KB has the same shape** (`Chatbot Response` columns, a "Conversion Triggers & Objection Handling" layer) and should be swept alongside its in-frame guidelines work; HFA's v1.8 is mostly clean (its `CTA:` markers describe website buttons, not bot behaviour) but deserves a read.
+  The durable rule: **KBs hold facts, guidelines hold behaviour.** Worth encoding in the shared mirror scaffold when that lands, and in whatever authors the next client KB.
 
 ---
 
@@ -83,7 +88,10 @@ Each client's KB is early; these are the known gaps to close as clients supply m
 
 - **Howorth Francis** — real photos and the "Field Notes" blog pieces are still placeholders (`blog.html` shell only); the bot won't assert them.
   Pricing is founder-locked range-aware (v1.8) and no longer a placeholder.
-- **Comm-Fit** — KB is v0.1 (public-facts only): no client-supplied pricing tiers, named case studies, or warranty terms yet.
+- **Comm-Fit** — KB is v0.3 (public facts + verified public URLs): no client-supplied pricing tiers, named case studies, or warranty terms yet.
+  **Spec sheets turned out not to be a client-input gap at all.** All eight flooring products have an ungated spec-sheet PDF and a detail page on comm-fit.com; they were simply never captured, so the bot could not link them. Added as KB Layer 0 on 2026-08-28 and verified live — see [`docs/comm-fit-probe-remediation-2026-08-28.md`](docs/comm-fit-probe-remediation-2026-08-28.md).
+  Still open: the **closure / re-entry window** after an electrostatic application (genuinely needs client input); the **contents** of the eight spec sheets (linkable now, but uncaptured — ingesting them would let the bot answer thickness and test-standard questions outright); and any product pages or spec sheets for **equipment**, which do not exist on the site.
+  **Generalisable lesson for the other two clients:** a capability gap and a data gap are indistinguishable from inside a conversation. When the bot asserts an asset exists and then can't locate it, treat that as a KB coverage report, not a hallucination to suppress. The check is cheap — fetch the client's own site and diff its URLs against the KB.
 - **SAS Conserve** — KB is v0.1; the KB's own "Thin / Missing Topics" section lists the gaps: pricing/cost structure, service-area/geographic coverage, product spec bodies, the 15-vs-20-year warranty reconciliation, company-level certifications, a contact email, and rebate details.
 
 ---

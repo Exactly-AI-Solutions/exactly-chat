@@ -32,7 +32,7 @@ https://staging.comm-fit.com
 https://comm-fit.com
 ```
 
-Already whitelisted: `https://comm-fit-concierge.vercel.app` and `http://localhost:3000` (local dev). Send us the rest — staging, production, and your local dev URL if it's on a different port (e.g. `http://localhost:5173` for Vite) — and we'll add them instantly.
+Already whitelisted: `https://comm-fit-concierge.vercel.app`, `https://comm-fit-clone-v2.vercel.app`, and `http://localhost:3000` (local dev). Send us the rest — staging, production, and your local dev URL if it's on a different port (e.g. `http://localhost:5173` for Vite) — and we'll add them instantly.
 
 > Note: the origin is your site's origin (scheme + host + port), not a path and with no trailing slash. `http://localhost:3000` and `http://localhost:5173` are different origins; `https://comm-fit.com` and `https://comm-fit.com/` are treated as the same origin by the browser (it always sends the slash-less form).
 
@@ -141,8 +141,17 @@ async function sendMessage(message, onToken) {
 ## 7. Behaviour notes
 
 - The assistant answers **only** from Comm-Fit's knowledge base and **declines off-topic requests** (it won't act as a general-purpose assistant). Test with questions about the six pillars — design & layout, equipment, flooring, disinfection, service & repair, and installation — plus lead times, service areas, and "why Comm-Fit."
-- **It will not invent numbers.** The only firm published price is that service calls start at $125; every other price is quote-dependent, so the assistant qualifies the request and routes to a custom quote rather than guessing a figure. It also won't fabricate specs, model availability, warranty terms, competitor names, or people. Expect it to surface the phone number **1-877-479-4444** near a decision point.
-- Replies are intentionally **concise** (a short paragraph, ~200 words max) — the chat is designed to read quickly.
+- **It will not invent numbers.** The only firm published price is that service calls start at $125; every other price is quote-dependent, so the assistant says so plainly and offers to get an exact figure rather than guessing one. It also won't fabricate specs, model availability, warranty terms, competitor names, or people.
+- Replies are intentionally **short** — typically 30–80 words, never more than 120, except when a visitor asks what Comm-Fit offers, where the assistant gives the full set (all three disinfection products, all six pillars) as a list and may run to ~150.
+- **Render the reply with line breaks preserved** (e.g. `white-space: pre-wrap`). The assistant deliberately breaks replies into short paragraphs separated by blank lines, and formats scope answers as `- ` bulleted lines. Do not collapse the newlines, or the formatting is lost and replies read as dense blocks.
+- **Links are the one markdown construct in the output.** The assistant emits inline links as `[label](https://…)` — for example a flooring product page or a spec-sheet PDF — because a bare URL is not clickable. Nothing else is markdown: no bold, no headings, no tables, no italics.
+  Render `[label](url)` as an anchor (`target="_blank" rel="noopener noreferrer"`), and escape the reply text **before** applying the link markup so a reply can never inject HTML. Only `https://comm-fit.com/…` URLs are ever emitted.
+  If you would rather not parse anything, the raw `[label](url)` text still reads acceptably — but the visitor loses the click, which was a specific piece of feedback from Comm-Fit.
+- **It does not push for a quote.** It answers what was asked, and only offers a quote, layout, or rep call once the visitor has what they came for or signals interest — at most twice in a conversation. It won't raise price unprompted.
+- **It completes requests in-chat rather than redirecting.** Mailing-list signups, case-study asks, and walkthrough requests are captured conversationally and passed to a rep; the assistant won't tell a visitor to email or call to make a request it can take itself. It surfaces **1-877-479-4444** when a visitor wants to talk to someone now or a repair is time-sensitive.
+- **Flooring product pages are linked directly.** Each of the eight flooring products has a comm-fit.com detail page; "where can I read more" and "can I download the spec sheet" are both answered with that link (the page itself carries the spec-sheet download), not with a rep follow-up or an email capture. Equipment and disinfection questions still route to a rep.
+- **It asks for contact details at most once at a time.** A visitor who hits several unknowns in a row will not be asked for an email address on every turn; the first ask stays open and later items attach to it.
+- **It cannot book a specific time.** There is no calendar in the chat, so for a call or an on-site walkthrough it captures the details and a preferred window for a rep to confirm. (In-chat scheduling is available as a platform feature — ask us if Comm-Fit wants it enabled.)
 - **Conversation state is server-side.** The only thing you persist client-side is `conversationId` (e.g. in `localStorage`) if you want a visitor to resume after a refresh.
 
 ## 8. Live reference implementation

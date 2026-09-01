@@ -53,7 +53,7 @@ export const config = {
     dimensions: 1536,
   },
   retrieval: {
-    mode: "full-kb" as RetrievalMode,
+    mode: "embeddings" as RetrievalMode,
     // Used only in "embeddings" mode. Tunable against real KBs (ADR-0005).
     topK: 8,
     similarityThreshold: 0.5,

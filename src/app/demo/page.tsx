@@ -189,7 +189,7 @@ export default function DemoPage() {
           const scheduling = hasScheduleToken(m.content);
           return (
             <div key={i} style={{ margin: "8px 0", textAlign: "left" }}>
-              <span style={bubbleStyle(false)}>{shown || "…"}</span>
+              <span style={bubbleStyle(false)}>{renderLinks(shown) || "…"}</span>
               {scheduling && (
                 <div style={schedulerCueStyle}>
                   📅 Booking intent — the scheduler embed renders here on the client site.
@@ -217,6 +217,32 @@ export default function DemoPage() {
       </div>
     </main>
   );
+}
+
+/**
+ * Assistant replies are plain text except for one construct: inline markdown
+ * links, `[label](https://…)`. They are the only way to give a visitor
+ * something clickable, so render them as anchors and leave everything else
+ * untouched (the bubble is `pre-wrap`, which preserves the paragraph breaks).
+ */
+const LINK_RE = /\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g;
+
+function renderLinks(text: string): React.ReactNode {
+  if (!text.includes("](")) return text;
+  const out: React.ReactNode[] = [];
+  let last = 0;
+  for (const m of text.matchAll(LINK_RE)) {
+    const at = m.index;
+    if (at > last) out.push(text.slice(last, at));
+    out.push(
+      <a key={at} href={m[2]} target="_blank" rel="noopener noreferrer">
+        {m[1]}
+      </a>,
+    );
+    last = at + m[0].length;
+  }
+  out.push(text.slice(last));
+  return out;
 }
 
 function bubbleStyle(user: boolean): React.CSSProperties {

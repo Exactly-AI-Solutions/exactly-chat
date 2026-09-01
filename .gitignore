@@ -25,3 +25,6 @@ next-env.d.ts
 # misc
 .DS_Store
 .env*
+
+# pre-change live config snapshots (may contain client material)
+/.backup
