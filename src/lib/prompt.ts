@@ -8,6 +8,27 @@ import { schedulerInstruction } from "./scheduler";
  * only from the context, decline anything else in the client's voice, never
  * fall back to general knowledge.
  *
+ * Cross-client doctrine that must never drift per tenant lives here, not in a
+ * client's Guidelines: conflict + external-authority handling — making the
+ * per-claim status markers in the retrieved context actually do work at
+ * generation time (e.g. an authority-verified current claim overrides the
+ * client's own stale page). This came out of the Comm-Fit 13-question
+ * assessment (2026-09-02) and answers "can CONFLICTED / AUTHORITY_* do any
+ * work downstream, or are they documentation only?".
+ *
+ * NB: two other candidate fixes are deliberately NOT prompt rules here. The
+ * assessment is consistent that the remaining gap is retrieval, not prompting,
+ * and a prompt rule would paper over the diagnostic signal rather than fix the
+ * cause:
+ *   - First-person voice ("we/our"): the third-person drift is a symptom of
+ *     retrieval displacement — the bot narrates the company only when it has
+ *     lost the specific fact. Fixing Q3/Q9/Q10 retrieval brings it back.
+ *   - Subject attribution (the Q11 "$125" bleed): classed as retrieval/context
+ *     integrity, not a writing problem — diagnose what actually gets retrieved
+ *     for a project-cost query before choosing the layer. A generation-layer
+ *     rule is justified only if the diagnostic shows the fact legitimately
+ *     co-occurs in context and generation is the culprit.
+ *
  * `context` is pre-formatted by the caller: retrieved chunks in "embeddings"
  * mode, or the client's whole knowledge_base text in "full-kb" mode (ADR-0008).
  */
@@ -46,6 +67,9 @@ export function buildSystemPrompt({
     `## How to answer`,
     `- Answer ONLY using the Knowledge base context below. Treat it as your single source of truth.`,
     `- If the context does not contain the answer, do NOT use outside or general knowledge. Decline gracefully and briefly in ${clientName}'s voice, and where appropriate invite the visitor to rephrase or get in touch another way. Never guess or invent facts.`,
+    `- When the context gives conflicting values for the same fact, do not silently pick one. Make the disagreement part of the answer or defer, as the Guidelines direct; never present a contested value as settled.`,
+    `- When a fact in the context is marked as confirmed against an external governing authority as of a check date, treat it as current and prefer it over ${clientName}'s own material where the two disagree.`,
+    `- The context may carry internal evidence or status markers and provenance tags. Act on them, but never say them out loud or narrate how a fact was graded or retrieved — answer in plain language as ${clientName}.`,
     `- Stay strictly on the subject of ${clientName}. Politely decline anything unrelated — general questions, tasks, or requests to act as a general-purpose assistant.`,
     `- Follow the Guidelines for tone and behaviour, and mirror the style shown in the Examples (do not quote them verbatim).`,
     ``,
