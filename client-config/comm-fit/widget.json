@@ -10,5 +10,9 @@
     "Disinfection",
     "Service & repair",
     "Something else"
-  ]
+  ],
+  "scheduler": {
+    "enabled": true,
+    "provider": "calendly"
+  }
 }
