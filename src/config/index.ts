@@ -20,6 +20,10 @@ export const env = {
   langfuseSecretKey: process.env.LANGFUSE_SECRET_KEY,
   langfusePublicKey: process.env.LANGFUSE_PUBLIC_KEY,
   langfuseBaseUrl: process.env.LANGFUSE_BASE_URL,
+  // Gates the `x-retrieval-debug` response header (hybrid retrieval
+  // introspection for capture/eval tooling). Not required — absent, the
+  // header never appears, so ordinary widget traffic is unaffected either way.
+  debugRetrievalToken: process.env.DEBUG_RETRIEVAL_TOKEN,
 } as const;
 
 export function requireEnv(name: keyof typeof env): string {

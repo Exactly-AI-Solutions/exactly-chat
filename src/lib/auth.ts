@@ -62,8 +62,8 @@ export function checkOrigin(
 export function corsHeaders(origin: string | null): Record<string, string> {
   const headers: Record<string, string> = {
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Authorization, Content-Type",
-    "Access-Control-Expose-Headers": "x-conversation-id",
+    "Access-Control-Allow-Headers": "Authorization, Content-Type, x-debug-retrieval",
+    "Access-Control-Expose-Headers": "x-conversation-id, x-retrieval-debug",
     "Access-Control-Max-Age": "86400",
     Vary: "Origin",
   };

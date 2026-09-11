@@ -26,6 +26,65 @@ export type SchedulerConfig = {
   provider: string | null;
 };
 
+/**
+ * Hybrid (dense + sparse + rerank) retrieval config, parsed from
+ * `widget_config.retrieval`. Absent or `mode !== "hybrid_rerank"` keeps a
+ * client on the legacy path (`config.retrieval` in `@/config`) untouched —
+ * this is a per-client opt-in, not a global switch (ADR pending, 2026-09).
+ */
+export type RetrievalConfig = {
+  mode: "hybrid_rerank" | "dense_legacy";
+  candidatePoolSize: number;
+  finalTopK: number;
+  rerankCutoff: number;
+  timeoutMs: number;
+  breaker: { failureThreshold: number; windowMs: number; cooldownMs: number };
+};
+
+const DEFAULT_RETRIEVAL_CONFIG: RetrievalConfig = {
+  mode: "dense_legacy",
+  candidatePoolSize: 40,
+  // Calibrated 2026-09-11/12 against 27 queries independent of the smoke/
+  // blind sets (kb/comm-fit/test_1/comm-fit-reranker-calibration-plan-*.md):
+  // p50=2268ms p95=2843ms max=4381ms for the full rerank pipeline (embed +
+  // dense + sparse + rerank) at pool sizes of 49–75 candidates. timeoutMs
+  // gives ~37% headroom over the observed max.
+  finalTopK: 8,
+  // Not applied by the current reranker (src/lib/retrieval/hybrid.ts,
+  // 2026-09-12): the model lists only the candidates it judges relevant,
+  // most-relevant-first, so inclusion in that list IS the cutoff — there is
+  // no separate numeric score to threshold. Kept in the config shape for a
+  // future mechanism (e.g. a cross-encoder reranker) that would use it.
+  rerankCutoff: 0.35,
+  timeoutMs: 6000,
+  breaker: { failureThreshold: 3, windowMs: 30_000, cooldownMs: 60_000 },
+};
+
+/** Parse the `retrieval` block out of a client's widget_config jsonb. */
+function parseRetrievalConfig(widgetConfig: unknown): RetrievalConfig {
+  const raw = (widgetConfig as { retrieval?: unknown } | null)?.retrieval;
+  if (!raw || typeof raw !== "object") return DEFAULT_RETRIEVAL_CONFIG;
+  const r = raw as Partial<Record<keyof RetrievalConfig, unknown>>;
+  const breakerRaw = (r.breaker ?? {}) as Partial<RetrievalConfig["breaker"]>;
+  return {
+    mode: r.mode === "hybrid_rerank" ? "hybrid_rerank" : "dense_legacy",
+    candidatePoolSize:
+      typeof r.candidatePoolSize === "number" ? r.candidatePoolSize : DEFAULT_RETRIEVAL_CONFIG.candidatePoolSize,
+    finalTopK: typeof r.finalTopK === "number" ? r.finalTopK : DEFAULT_RETRIEVAL_CONFIG.finalTopK,
+    rerankCutoff: typeof r.rerankCutoff === "number" ? r.rerankCutoff : DEFAULT_RETRIEVAL_CONFIG.rerankCutoff,
+    timeoutMs: typeof r.timeoutMs === "number" ? r.timeoutMs : DEFAULT_RETRIEVAL_CONFIG.timeoutMs,
+    breaker: {
+      failureThreshold:
+        typeof breakerRaw.failureThreshold === "number"
+          ? breakerRaw.failureThreshold
+          : DEFAULT_RETRIEVAL_CONFIG.breaker.failureThreshold,
+      windowMs: typeof breakerRaw.windowMs === "number" ? breakerRaw.windowMs : DEFAULT_RETRIEVAL_CONFIG.breaker.windowMs,
+      cooldownMs:
+        typeof breakerRaw.cooldownMs === "number" ? breakerRaw.cooldownMs : DEFAULT_RETRIEVAL_CONFIG.breaker.cooldownMs,
+    },
+  };
+}
+
 export type ClientConfig = {
   id: string;
   name: string;
@@ -34,6 +93,7 @@ export type ClientConfig = {
   qaSamples: string;
   knowledgeBase: string;
   scheduler: SchedulerConfig;
+  retrieval: RetrievalConfig;
 };
 
 export type ConversationMessage = {
@@ -47,6 +107,24 @@ export type KbMatch = {
   sourceFilename: string | null;
   sourcePage: number | null;
   similarity: number;
+};
+
+export type DenseCandidate = {
+  id: string;
+  content: string;
+  sourceFilename: string | null;
+  sourcePage: number | null;
+  denseScore: number;
+  denseRank: number;
+};
+
+export type SparseCandidate = {
+  id: string;
+  content: string;
+  sourceFilename: string | null;
+  sourcePage: number | null;
+  sparseScore: number;
+  sparseRank: number;
 };
 
 export type WidgetConfig = {
@@ -91,6 +169,7 @@ export class ClientData {
       qaSamples: data.qa_samples ?? "",
       knowledgeBase: data.knowledge_base ?? "",
       scheduler: parseScheduler(data.widget_config),
+      retrieval: parseRetrievalConfig(data.widget_config),
     };
   }
 
@@ -197,6 +276,68 @@ export class ClientData {
       sourceFilename: r.source_filename,
       sourcePage: r.source_page,
       similarity: r.similarity,
+    }));
+  }
+
+  /**
+   * Dense candidate generation for hybrid retrieval (0005): cosine similarity,
+   * gated only by a low sanity floor (not a precision floor — see 0005's
+   * header). Precision comes from the reranker/RRF ordering applied by the
+   * caller, not this query.
+   */
+  async matchDenseCandidates(
+    queryEmbedding: number[],
+    candidateCount: number,
+    minSimilarity = 0.15,
+  ): Promise<DenseCandidate[]> {
+    const { data, error } = await db().rpc("match_kb_chunks_dense_candidates", {
+      p_client_id: this.clientId,
+      p_query_embedding: queryEmbedding,
+      p_candidate_count: candidateCount,
+      p_min_similarity: minSimilarity,
+    });
+    if (error) throw error;
+    type Row = {
+      id: string;
+      content: string;
+      source_filename: string | null;
+      source_page: number | null;
+      dense_score: number;
+      dense_rank: number;
+    };
+    return ((data ?? []) as Row[]).map((r) => ({
+      id: r.id,
+      content: r.content,
+      sourceFilename: r.source_filename,
+      sourcePage: r.source_page,
+      denseScore: r.dense_score,
+      denseRank: r.dense_rank,
+    }));
+  }
+
+  /** Sparse candidate generation for hybrid retrieval (0005): Postgres full-text search. */
+  async matchSparseCandidates(queryText: string, candidateCount: number): Promise<SparseCandidate[]> {
+    const { data, error } = await db().rpc("match_kb_chunks_sparse_candidates", {
+      p_client_id: this.clientId,
+      p_query_text: queryText,
+      p_candidate_count: candidateCount,
+    });
+    if (error) throw error;
+    type Row = {
+      id: string;
+      content: string;
+      source_filename: string | null;
+      source_page: number | null;
+      sparse_score: number;
+      sparse_rank: number;
+    };
+    return ((data ?? []) as Row[]).map((r) => ({
+      id: r.id,
+      content: r.content,
+      sourceFilename: r.source_filename,
+      sourcePage: r.source_page,
+      sparseScore: r.sparse_score,
+      sparseRank: r.sparse_rank,
     }));
   }
 }

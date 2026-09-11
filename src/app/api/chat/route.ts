@@ -1,9 +1,10 @@
 import { streamText, type ModelMessage } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
-import { config } from "@/config";
+import { config, env } from "@/config";
 import { dataForClient } from "@/lib/data";
 import { embedQuery } from "@/lib/embedding";
 import { buildSystemPrompt, formatChunks } from "@/lib/prompt";
+import { retrieveHybrid, type HybridResult } from "@/lib/retrieval/hybrid";
 import { stripScheduleToken } from "@/lib/scheduler";
 import { propagateAttributes } from "@langfuse/tracing";
 import {
@@ -70,7 +71,13 @@ export async function POST(req: Request) {
   const history = await data.listMessages(conversationId);
 
   let context: string;
-  if (config.retrieval.mode === "embeddings") {
+  let hybridResult: HybridResult | null = null;
+  if (client.retrieval.mode === "hybrid_rerank") {
+    // Per-client opt-in (2026-09, Comm-Fit only) — dense+sparse candidates,
+    // model rerank, RRF fallback. See src/lib/retrieval/hybrid.ts.
+    hybridResult = await retrieveHybrid(data, message, client.retrieval);
+    context = formatChunks(hybridResult.chunks);
+  } else if (config.retrieval.mode === "embeddings") {
     const queryEmbedding = await embedQuery(message);
     const chunks = await data.matchKbChunks(
       queryEmbedding,
@@ -139,9 +146,23 @@ export async function POST(req: Request) {
       }),
   );
 
-  return result.toTextStreamResponse({
-    headers: { ...corsHeaders(origin.origin), "x-conversation-id": conversationId },
-  });
+  // Retrieval introspection for the smoke/eval capture, opt-in via a shared
+  // token so ordinary widget traffic never carries it. Ids/scores/ranks only
+  // — never chunk content, which the capture already has from the context.
+  const debugToken = req.headers.get("x-debug-retrieval");
+  const responseHeaders: Record<string, string> = {
+    ...corsHeaders(origin.origin),
+    "x-conversation-id": conversationId,
+  };
+  if (hybridResult && env.debugRetrievalToken && debugToken === env.debugRetrievalToken) {
+    responseHeaders["x-retrieval-debug"] = JSON.stringify({
+      method: hybridResult.method,
+      reason: hybridResult.reason,
+      results: hybridResult.debug,
+    });
+  }
+
+  return result.toTextStreamResponse({ headers: responseHeaders });
 }
 
 /** CORS preflight. Reflect the requested origin; real enforcement is on POST. */
