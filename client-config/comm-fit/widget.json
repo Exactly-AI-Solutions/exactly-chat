@@ -14,5 +14,17 @@
   "scheduler": {
     "enabled": true,
     "provider": "calendly"
+  },
+  "retrieval": {
+    "mode": "hybrid_rerank",
+    "candidatePoolSize": 40,
+    "finalTopK": 8,
+    "rerankCutoff": 0.35,
+    "timeoutMs": 6000,
+    "breaker": {
+      "failureThreshold": 3,
+      "windowMs": 30000,
+      "cooldownMs": 60000
+    }
   }
 }
