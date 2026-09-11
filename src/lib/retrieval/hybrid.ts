@@ -52,22 +52,31 @@ function parseBlockId(content: string): string | null {
   return content.match(/^\*\*\[([^\]]+)\]/)?.[1] ?? null;
 }
 
+/**
+ * Field names and shape match the capture spec exactly (Mark, 2026-09-11/12
+ * pre-flight: kb/comm-fit/comm-fit-phase-b-run-plan-and-data-2026-09-11_1052.md
+ * §2) — snake_case, `id` is the corpus block id (not the internal row UUID,
+ * which is not exposed here at all), `rrf_score` and `rerank_score` are
+ * separate fields computed independently (RRF is always computed, not only
+ * on fallback, so the two can be compared on a normal run), `in_context` is
+ * explicit rather than only inferable from `final_rank`, and `rerank_status`
+ * is duplicated onto every row rather than carried once at the response's
+ * top level — a whole retrieval call shares one method/reason by
+ * construction, so "any row degraded" and "the whole probe degraded" agree.
+ */
 export type HybridDebugEntry = {
-  id: string;
-  blockId: string | null;
-  source: string | null;
-  denseRank: number | null;
-  denseScore: number | null;
-  sparseRank: number | null;
-  sparseScore: number | null;
-  /**
-   * Synthetic, derived from the reranker's inclusion-list position (or from
-   * RRF fusion in degraded mode) — NOT a model-generated confidence value.
-   * The model no longer scores every candidate (see rerankWithLLM); a
-   * candidate it judged irrelevant simply has no entry here (null).
-   */
-  rerankScore: number | null;
-  finalRank: number | null;
+  id: string | null;
+  source_filename: string | null;
+  dense_rank: number | null;
+  dense_score: number | null;
+  sparse_rank: number | null;
+  sparse_score: number | null;
+  rrf_score: number | null;
+  /** The reranker's inclusion-list position, synthetic — null if RRF ran instead, or the candidate wasn't judged relevant. */
+  rerank_score: number | null;
+  final_rank: number | null;
+  in_context: boolean;
+  rerank_status: "ok" | `degraded:${DegradeReason}`;
 };
 
 export type HybridResult = {
@@ -284,10 +293,15 @@ export async function retrieveHybrid(
   ]);
   const candidates = unionDedupe(dense, sparse);
 
+  // Always computed — <5ms, and needed on every row (not only fallback rows)
+  // so rrf_score and rerank_score are independently comparable on a normal,
+  // non-degraded run, per the capture spec.
+  const rrfById = new Map(rrfOrder(candidates).map((c) => [c.id, c.score]));
+
   let ordered: (UnionedCandidate & { score: number })[];
   let method: RetrievalMethod;
   let reason: DegradeReason | null = null;
-  let relevantIds: string[] | null = null;
+  let rerankScoreById = new Map<string, number>();
 
   if (candidates.length === 0) {
     ordered = [];
@@ -298,16 +312,18 @@ export async function retrieveHybrid(
     reason = "breaker_open";
   } else {
     try {
-      relevantIds = await withTimeout(rerankWithLLM(queryText, candidates), cfg.timeoutMs);
+      const relevantIds = await withTimeout(rerankWithLLM(queryText, candidates), cfg.timeoutMs);
       const byId = new Map(candidates.map((c) => [c.id, c]));
       // Synthetic descending score from rank position, for debug/introspection
       // continuity only — the model's inclusion list is the actual cutoff
       // (rerankCutoff is not applied here; nothing past this point is
       // filtered by score, only by finalTopK). First-place ~1.0, decaying.
-      ordered = relevantIds
+      const withScore = relevantIds
         .map((id) => byId.get(id))
         .filter((c): c is UnionedCandidate => c != null)
         .map((c, i, arr) => ({ ...c, score: 1 - i / arr.length }));
+      rerankScoreById = new Map(withScore.map((c) => [c.id, c.score]));
+      ordered = withScore;
       method = "rerank";
       breakerRecordSuccess();
     } catch (err) {
@@ -323,20 +339,23 @@ export async function retrieveHybrid(
   // candidate at all); the reranker's inclusion list is likewise already the
   // cutoff (see above) — either way `ordered` needs only a topK truncation.
   const final = ordered.slice(0, cfg.finalTopK);
+  const finalIdxById = new Map(final.map((c, i) => [c.id, i]));
+  const status: HybridDebugEntry["rerank_status"] = method === "rerank" && reason === null ? "ok" : `degraded:${reason ?? "http_error"}`;
 
-  const orderedScoreById = new Map(ordered.map((c) => [c.id, c.score]));
   const debug: HybridDebugEntry[] = candidates.map((c) => {
-    const finalIdx = final.findIndex((f) => f.id === c.id);
+    const finalIdx = finalIdxById.get(c.id) ?? -1;
     return {
-      id: c.id,
-      blockId: parseBlockId(c.content),
-      source: c.sourceFilename,
-      denseRank: c.denseRank,
-      denseScore: c.denseScore,
-      sparseRank: c.sparseRank,
-      sparseScore: c.sparseScore,
-      rerankScore: orderedScoreById.get(c.id) ?? null,
-      finalRank: finalIdx === -1 ? null : finalIdx + 1,
+      id: parseBlockId(c.content),
+      source_filename: c.sourceFilename,
+      dense_rank: c.denseRank,
+      dense_score: c.denseScore,
+      sparse_rank: c.sparseRank,
+      sparse_score: c.sparseScore,
+      rrf_score: rrfById.get(c.id) ?? null,
+      rerank_score: rerankScoreById.get(c.id) ?? null,
+      final_rank: finalIdx === -1 ? null : finalIdx + 1,
+      in_context: finalIdx !== -1,
+      rerank_status: status,
     };
   });
 
