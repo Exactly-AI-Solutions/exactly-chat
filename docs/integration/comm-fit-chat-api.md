@@ -15,7 +15,7 @@ https://exactly-chat.vercel.app
 Every request needs an API key, sent as a Bearer token:
 
 ```
-Authorization: Bearer eck_b95a55bf585d01f5_IfT83IB_N7-kVUln08ZEqgjep-P806LH
+Authorization: Bearer eck_1bfe9e69fe53a806_5Kz3j0PExnRu2LUVAX3ZniJPXZ3D4JNg
 ```
 
 This key is **publishable** — it is designed to live in front-end code (like a Stripe publishable key). It identifies the client; it is not a secret. The real access controls are the domain whitelist (below) and per-client usage limits.
@@ -94,7 +94,7 @@ Errors return JSON `{ "error": "..." }` with an HTTP status:
 
 ```js
 const BASE = "https://exactly-chat.vercel.app";
-const API_KEY = "eck_b95a55bf585d01f5_IfT83IB_N7-kVUln08ZEqgjep-P806LH";
+const API_KEY = "eck_1bfe9e69fe53a806_5Kz3j0PExnRu2LUVAX3ZniJPXZ3D4JNg";
 let conversationId = null;
 
 // 1. Load the opening once
