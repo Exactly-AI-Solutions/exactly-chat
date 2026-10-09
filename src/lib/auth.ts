@@ -41,6 +41,22 @@ export async function resolveClientFromApiKey(
 }
 
 /**
+ * True if an allowlist `pattern` matches `origin` exactly, or — if `pattern`
+ * contains `*` — as a glob (e.g. `https://reunited-clothing-*-mark-wongs-
+ * projects-b14c6b65.vercel.app` matches any Vercel preview deployment of that
+ * project/scope, whose hash segment changes on every deploy). Entries with no
+ * `*` are unaffected: exact string equality, same as before.
+ */
+function originMatches(pattern: string, origin: string): boolean {
+  if (!pattern.includes("*")) return pattern === origin;
+  const regex = pattern
+    .split("*")
+    .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join(".*");
+  return new RegExp(`^${regex}$`).test(origin);
+}
+
+/**
  * Domain whitelist check (ADR-0002 Layer A). A browser always sends a truthful
  * `Origin`; absence means a non-browser caller (curl / server), where Layer A
  * cannot meaningfully apply and Origin is forgeable anyway — so we don't block.
@@ -51,7 +67,7 @@ export function checkOrigin(
 ): { ok: boolean; origin: string | null } {
   const origin = req.headers.get("origin");
   if (!origin) return { ok: true, origin: null };
-  return { ok: allowedOrigins.includes(origin), origin };
+  return { ok: allowedOrigins.some((pattern) => originMatches(pattern, origin)), origin };
 }
 
 /**
