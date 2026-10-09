@@ -1,8 +1,9 @@
-import { streamText, type ModelMessage } from "ai";
+import { generateText, streamText, type ModelMessage } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { config, env } from "@/config";
 import { dataForClient } from "@/lib/data";
 import { embedQuery } from "@/lib/embedding";
+import { applyLabelGuard, findBannedPhrases, getOutputGuard } from "@/lib/illustrative-guard";
 import { buildSystemPrompt, formatChunks } from "@/lib/prompt";
 import { retrieveHybrid, type HybridResult } from "@/lib/retrieval/hybrid";
 import { stripScheduleToken } from "@/lib/scheduler";
@@ -106,44 +107,59 @@ export async function POST(req: Request) {
   // 6. Persist the user message before generating — the server owns the record.
   await data.appendMessage(conversationId, "user", message);
 
+  // Mechanical output guard (label + banned-phrase backstop) for clients whose
+  // Guidelines require it — see src/lib/illustrative-guard.ts. Reunited only,
+  // today. Guarded clients give up true token streaming for the reply (the
+  // guard needs the full text before anything is sent) in exchange for the
+  // guard actually holding; ungated clients are unaffected either way.
+  const guard = getOutputGuard(client.name);
+
   // Langfuse tracing (ADR-0006). `propagateAttributes` stamps trace-level
   // attributes onto the spans the @langfuse/vercel-ai-sdk integration creates.
   // Wrapping the streamText call is enough: the AI SDK opens its root span
   // synchronously here, so it inherits these before streaming continues.
-  const result = propagateAttributes(
-    {
-      traceName: "chat",
-      // One conversation = one Langfuse session, so every turn aggregates
-      // together for per-session analysis (the ask).
-      sessionId: conversationId,
-      // Our tenant (client) is the billable/analytical unit — end-user sessions
-      // are anonymous. Using userId for the client unlocks Langfuse's per-user
-      // cost/usage/session dashboards per client. (If per-end-user identity is
-      // added later, userId shifts to the end user; client stays in metadata/tags.)
-      userId: clientId,
-      tags: [`client:${client.name}`],
-      metadata: { clientId, clientName: client.name },
-    },
-    () =>
-      streamText({
-        model: anthropic(config.chat.model),
-        system,
-        messages,
-        telemetry: {
-          isEnabled: true,
-          functionId: "chat",
-        },
-        onFinish: async ({ text }) => {
-          // Strip the booking cue before persisting: history and analytics carry
-          // the words the visitor saw, not the control token (which is stripped
-          // client-side too). The token is a transient render signal, not content.
-          await data.appendMessage(
-            conversationId,
-            "assistant",
-            stripScheduleToken(text),
-          );
-        },
-      }),
+  const tracingAttributes = {
+    traceName: "chat",
+    // One conversation = one Langfuse session, so every turn aggregates
+    // together for per-session analysis (the ask).
+    sessionId: conversationId,
+    // Our tenant (client) is the billable/analytical unit — end-user sessions
+    // are anonymous. Using userId for the client unlocks Langfuse's per-user
+    // cost/usage/session dashboards per client. (If per-end-user identity is
+    // added later, userId shifts to the end user; client stays in metadata/tags.)
+    userId: clientId,
+    tags: [`client:${client.name}`],
+    metadata: { clientId, clientName: client.name },
+  };
+
+  const result = propagateAttributes(tracingAttributes, () =>
+    streamText({
+      model: anthropic(config.chat.model),
+      system,
+      messages,
+      telemetry: {
+        isEnabled: true,
+        functionId: "chat",
+      },
+      // Guarded clients persist after the guard runs (below), not here —
+      // `text` at this point hasn't been checked for the label or banned
+      // phrases yet.
+      ...(guard
+        ? {}
+        : {
+            onFinish: async ({ text }) => {
+              // Strip the booking cue before persisting: history and analytics
+              // carry the words the visitor saw, not the control token (which is
+              // stripped client-side too). The token is a transient render
+              // signal, not content.
+              await data.appendMessage(
+                conversationId,
+                "assistant",
+                stripScheduleToken(text),
+              );
+            },
+          }),
+    }),
   );
 
   // Retrieval introspection for the smoke/eval capture, opt-in via a shared
@@ -162,7 +178,45 @@ export async function POST(req: Request) {
     });
   }
 
-  return result.toTextStreamResponse({ headers: responseHeaders });
+  if (!guard) {
+    return result.toTextStreamResponse({ headers: responseHeaders });
+  }
+
+  let guardedText = await result.text;
+
+  // [P2-N1]: a reply using banned builder language is regenerated once, then
+  // minimally rewritten if it still hits. Rare in practice (adversarial or
+  // meta turns only), so this extra model call never touches the common path.
+  const bannedHits = findBannedPhrases(guard, guardedText);
+  if (bannedHits.length > 0) {
+    const { text: rewritten } = await generateText({
+      model: anthropic(config.chat.model),
+      system,
+      messages: [
+        ...messages,
+        { role: "assistant", content: guardedText },
+        {
+          role: "user",
+          content: `That reply used internal terms that must never reach a visitor: ${bannedHits.join(", ")}. Rewrite your last reply so it says the same thing without those terms and without naming the mechanism — keep the content, tone, and the illustrative label (if present) exactly as they were.`,
+        },
+      ],
+      telemetry: { isEnabled: true, functionId: "chat-banned-phrase-rewrite" },
+    });
+    guardedText =
+      findBannedPhrases(guard, rewritten).length > 0
+        ? guard.minimalRewrite(rewritten)
+        : rewritten;
+  }
+
+  // [P2-L2]: a reply that repeats, recalculates, or summarizes an illustrative
+  // figure without the label gets the label appended mechanically.
+  guardedText = applyLabelGuard(guard, guardedText);
+
+  await data.appendMessage(conversationId, "assistant", stripScheduleToken(guardedText));
+
+  return new Response(guardedText, {
+    headers: { ...responseHeaders, "Content-Type": "text/plain; charset=utf-8" },
+  });
 }
 
 /** CORS preflight. Reflect the requested origin; real enforcement is on POST. */
